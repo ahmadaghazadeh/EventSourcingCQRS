@@ -1,9 +1,8 @@
-﻿namespace LoanApplications.Domain.Model.LoanApplications.States;
-
-public class InProgress : LoanApplicationState
+﻿namespace LoanApplications.Domain.Model.LoanApplications.States
 {
-	public override bool CanAccept() => true;
-
-	public override bool CanReject() => true;
-        
+    internal class InProgress : LoanApplicationState
+    {
+        public override bool CanReject() => true;
+        public override bool CanAccept() => true;
+    }
 }

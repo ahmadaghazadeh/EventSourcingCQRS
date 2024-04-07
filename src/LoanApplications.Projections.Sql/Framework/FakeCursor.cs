@@ -1,4 +1,5 @@
-﻿using EventStore.Client;
+﻿
+using EventStore.ClientAPI;
 
 namespace LoanApplications.Projections.Sql.Framework
 {

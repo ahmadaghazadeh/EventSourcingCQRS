@@ -1,35 +1,37 @@
-﻿using EventStore.Client;
-
+﻿using EventStore.ClientAPI;
 using Framework.Core;
 using Framework.Domain;
 
 namespace Framework.Persistence.ES
 {
-    public class EventStoreDb : IEventStore
-    {
-        private readonly EventStoreClient connection;
-        private readonly IEventTypeResolver eventTypeResolver;
+	public class EventStoreDb : IEventStore
+	{
+		private readonly IEventStoreConnection _connection;
+		private readonly IEventTypeResolver _typeResolver;
+		public EventStoreDb(IEventStoreConnection connection, IEventTypeResolver typeResolver)
+		{
+			_connection = connection;
+			_typeResolver = typeResolver;
+		}
+		public async Task<List<DomainEvent>> GetEventsOfStream<T, TKey>(TKey id) where T : AggregateRoot<TKey>
+		{
+			return await GetEventsOfStream<T, TKey>(id, StreamPosition.Start);
 
-        public EventStoreDb(EventStoreClient connection,IEventTypeResolver eventTypeResolver)
-        {
-            this.connection = connection;
-            this.eventTypeResolver = eventTypeResolver;
-        }
+		}
+		public async Task<List<DomainEvent>> GetEventsOfStream<T, TKey>(TKey id, int fromIndex) where T : AggregateRoot<TKey>
+		{
+			var streamId = StreamNames.GetStreamName<T, TKey>(id);
+			var streamEvents = await EventStreamReader.Read(_connection, streamId, fromIndex, 200); //TODO:remove this hard-coded '200' and real all events
+			return DomainEventFactory.Create(streamEvents, _typeResolver);
+		}
 
-
-
-        public async Task AppendEvents(string streamId, IEnumerable<DomainEvent> events)
-        {
-            var eventData = EventDataFactory.CreateFrom(events);
-            await connection.AppendToStreamAsync(streamId,StreamState.Any,eventData);
-        }
-
-        public async Task<List<DomainEvent>> GetEventsOfStream(string streamId)
-        {
-            var events = connection.ReadStreamAsync(Direction.Forwards, streamId, StreamPosition.Start);
-            var resolvedEvents = await events.ToListAsync();
-            var domainEvents = DomainEventFactory.CreateFrom(resolvedEvents, eventTypeResolver);
-            return domainEvents;
-        }
-    }
+		public async Task AppendEvents<T, TKey>(T aggregateRoot) where T : AggregateRoot<TKey>
+		{
+			var events = aggregateRoot.GetUncommittedEvents();
+			var streamId = StreamNames.GetStreamName<T, TKey>(aggregateRoot.Id);
+			var expectedVersion = ExpectedVersionCalculator.GetExpectedVersionOfAggregate(aggregateRoot);
+			var eventData = EventDataFactory.CreateFromDomainEvents(events);
+			await _connection.AppendToStreamAsync(streamId, expectedVersion, eventData);
+		}
+	}
 }

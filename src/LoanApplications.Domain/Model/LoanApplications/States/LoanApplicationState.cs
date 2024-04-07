@@ -1,8 +1,8 @@
 ﻿namespace LoanApplications.Domain.Model.LoanApplications.States
 {
-    public abstract class LoanApplicationState
+    internal abstract class LoanApplicationState
     {
-        public virtual bool CanReject()=>false;
-        public virtual bool CanAccept()=>false;
+        public virtual bool CanReject() => false;
+        public virtual bool CanAccept() => false;
     }
 }

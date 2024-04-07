@@ -1,33 +1,31 @@
-﻿namespace Framework.Domain
+﻿
+using Framework.Domain.Snapshots;
+
+namespace Framework.Domain
 {
-    public class EventSourceRepository<T> : IEventSourceRepository<T> where T : AggregateRoot
-    {
-        private readonly IEventStore eventStore;
-        private readonly IAggregateFactory aggregateFactory;
+	public class EventSourceRepository<T, TKey> : IEventSourceRepository<T, TKey> where T : AggregateRoot<TKey>
+	{
+		private readonly IEventStore _eventStore;
+		private readonly IAggregateFactory _aggregateFactory;
+		private readonly ISnapshotStore _snapshotStore;
+		public EventSourceRepository(IEventStore eventStore, IAggregateFactory aggregateFactory, ISnapshotStore snapshotStore)
+		{
+			_eventStore = eventStore;
+			_aggregateFactory = aggregateFactory;
+			_snapshotStore = snapshotStore;
+		}
+		public async Task<T> GetById(TKey id)
+		{
+			var snapshot = await _snapshotStore.GetLatestSnapshotOf<T, TKey>(id);
+			var listOfEvents = await _eventStore.GetEventsOfStream<T, TKey>(id, snapshot.Version);
+			return _aggregateFactory.Create<T>(listOfEvents, snapshot);
+		}
 
-        public EventSourceRepository(IEventStore eventStore, IAggregateFactory aggregateFactory)
-        {
-            this.eventStore = eventStore;
-            this.aggregateFactory = aggregateFactory;
-        }
-        public async Task AppendEvents(T aggregate)
-        {
-            var events = aggregate.GetUncommittedEvents();
-
-            await eventStore.AppendEvents(GetStreamName(aggregate.Id), events);
-        }
-
-        public async Task<T> GetById(Guid id)
-        {
-            var listOfEvents = await eventStore.GetEventsOfStream(GetStreamName(id));
-
-            return aggregateFactory.Create<T>(listOfEvents);
-        }
-
-        private string GetStreamName(Guid id)
-        {
-            var type = typeof(T).Name;
-            return $"{type}-{id}";
-        }
-    }
+		public async Task AppendEvents(T aggregate)
+		{
+			await _eventStore.AppendEvents<T, TKey>(aggregate);
+			//TODO: clear uncommitted events after append
+			//TODO: if (snapshot store == InMemory) then  1.GetSnapshotFromAggregate  2.AddOrUpdateSnapshot(aggregate)
+		}
+	}
 }

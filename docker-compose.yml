@@ -1,0 +1,30 @@
+version: '3.4'
+
+services:
+  loanapplications.projections.sql:
+    image: ${DOCKER_REGISTRY-}loanapplicationsprojectionssql
+    build:
+      context: .
+      dockerfile: src/LoanApplications.Projections.Sql/Dockerfile
+
+  sqldata:
+    container_name: mssql-db
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      - SA_PASSWORD=Pass@word
+      - ACCEPT_EULA=Y
+    ports: 
+      - "1433:1433"
+
+
+  eventstore.db:
+    image: eventstore/eventstore:release-5.0.11
+    environment:
+      - EVENTSTORE_CLUSTER_SIZE=1
+      - EVENTSTORE_EXT_TCP_PORT=1113
+      - EVENTSTORE_EXT_HTTP_PORT=2113
+      - EVENTSTORE_ENABLE_EXTERNAL_TCP=true
+      - EVENTSTORE_ENABLE_ATOM_PUB_OVER_HTTP=true
+    ports:
+      - "1113:1113"
+      - "2113:2113"

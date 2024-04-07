@@ -1,14 +1,29 @@
 ﻿using Framework.Core.Events;
 using LoanApplications.Domain.Contracts;
+using LoanApplications.Projections.Sql.Handlers.Model;
 
 namespace LoanApplications.Projections.Sql.Handlers
 {
     public class LoanRequestedHandler : IEventHandler<LoanRequested>
     {
-
-        public Task Handle(LoanRequested @event)
+        private readonly LoanApplicationContext _context;
+        public LoanRequestedHandler(LoanApplicationContext context)
         {
-            return Task.CompletedTask;
+            _context = context;
+        }
+        public async Task Handle(LoanRequested @event)
+        {
+            var application = new LoanApplication()
+            {
+                Id = @event.LoanApplicationId,
+                Amount = @event.Amount,
+                ApplicantId = @event.ApplicantId,
+                Description = @event.Description,
+                PaybackMonths = @event.PaybackMonths,
+                State = LoanApplicationState.InProgress
+            };
+            await _context.LoanApplications.AddAsync(application);
+            await _context.SaveChangesAsync();
         }
     }
 }

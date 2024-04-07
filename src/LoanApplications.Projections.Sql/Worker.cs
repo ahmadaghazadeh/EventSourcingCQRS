@@ -1,70 +1,70 @@
-using EventStore.Client;
+using System.Text;
+using EventStore.ClientAPI;
 using Framework.Core;
 using Framework.Core.Events;
 using LoanApplications.Domain.Contracts;
 using LoanApplications.Projections.Sql.Framework;
+using Microsoft.Extensions.Hosting;
+using Newtonsoft.Json;
 
 namespace LoanApplications.Projections.Sql
 {
-    public class Worker : BackgroundService
-    {
-        private readonly ILogger<Worker> _logger;
-        
-        private readonly ICursor cursor;
-        private readonly IEventTypeResolver eventTypeResolver;
-        private readonly IEventBus eventBus;
+	public class Worker : BackgroundService
+	{
+		private readonly ILogger<Worker> _logger;
+		//private readonly IOptions<EventStoreConfig> _config;
+		private readonly ICursor _cursor;
+		private readonly IEventTypeResolver _typeResolver;
+		private readonly IEventBus _eventBus;
+		public Worker(ILogger<Worker> logger, ICursor cursor, IEventTypeResolver typeResolver, IEventBus eventBus)
+		{
+			_logger = logger;
+			//_config = config;
+			_cursor = cursor;
+			_typeResolver = typeResolver;
+			_eventBus = eventBus;
+		}
 
-        public Worker(
-            ILogger<Worker> logger,
-            ICursor cursor,
-            IEventTypeResolver eventTypeResolver,
-            IEventBus eventBus)
-        {
-            _logger = logger;
-            this.cursor = cursor;
-            this.eventTypeResolver = eventTypeResolver;
-            this.eventBus = eventBus;
-        }
+		protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+		{
+			_typeResolver.AddTypesFromAssembly(typeof(LoanRequested).Assembly);
+			var conn = EventStoreConnection.Create(new Uri("tcp://admin:changeit@localhost:1113"));
+			await conn.ConnectAsync();
 
-        protected override async Task ExecuteAsync(CancellationToken stoppingToken)
-        {
-            
+			conn.SubscribeToAllFrom(
+				_cursor.CurrentPosition(),
+				CatchUpSubscriptionSettings.Default,
+				EventAppeared);
+		}
 
-            eventTypeResolver.AddTypesFromAssembly(typeof(LoanRequested).Assembly);
+		private async Task EventAppeared(EventStoreCatchUpSubscription arg1, ResolvedEvent @event)
+		{
+			try
+			{
+				if (!@event.OriginalEvent.EventType.StartsWith("$"))
+				{
+					_logger.LogInformation($"Event Appeared : {@event.OriginalEvent.EventType}");
 
-            var settings = EventStoreClientSettings.Create("esdb://eventstore:2113?tls=false");
+					//TODO: consider using domain event factory
+					var type = _typeResolver.GetType(@event.OriginalEvent.EventType);
+					if (type != null)
+					{
+						var body = Encoding.UTF8.GetString(@event.OriginalEvent.Data);
+						var domainEvent = (JsonConvert.DeserializeObject(body, type));
 
-            var client = new EventStoreClient(settings);
-
-            await client.SubscribeToAllAsync(
-                FromAll.Start,
-                EventAppeared);
-
-            _logger.LogInformation($"Connected to eventstore [{DateTime.Now:yyyy:MM:dd HH:mm:ss}]");
-        }
-
-        private async Task EventAppeared(
-            StreamSubscription subscription,
-            ResolvedEvent @event,
-            CancellationToken token)
-        {
-            if (!@event.OriginalEvent.EventType.StartsWith('$'))
-            {
-                var domainEvent = DomainEventFactory.CreateFrom(@event, eventTypeResolver);
-                if (domainEvent == null)
-                {
-                    _logger.LogWarning(
-                        "No type registered for event type " +
-                        @event.OriginalEvent.EventType);
-                }
-                else
-                {
-                    _logger.LogInformation(
-                        $"Received Event {@event.OriginalEvent.EventType}-[{DateTime.Now:yyyy:MM:dd HH:mm:ss}]");
-
-                    await eventBus.Publish(domainEvent);
-                }
-            }
-        }
-    }
+						await _eventBus.Publish((dynamic)domainEvent);      //In-Memory
+					}
+					else
+					{
+						_logger.LogWarning($"type '{@event.OriginalEvent.EventType}' not found !");
+					}
+				}
+			}
+			catch (Exception ex)
+			{
+				_logger.LogError(ex.ToString());
+				throw;
+			}
+		}
+	}
 }

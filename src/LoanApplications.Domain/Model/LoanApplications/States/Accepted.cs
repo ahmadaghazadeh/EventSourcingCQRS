@@ -1,8 +1,6 @@
-﻿namespace LoanApplications.Domain.Model.LoanApplications.States;
-
-public class Accepted : LoanApplicationState
+﻿namespace LoanApplications.Domain.Model.LoanApplications.States
 {
-	public override bool CanAccept() => false;
-	public override bool CanReject() => false;
-        
+    internal class Accepted : LoanApplicationState
+    {
+    }
 }

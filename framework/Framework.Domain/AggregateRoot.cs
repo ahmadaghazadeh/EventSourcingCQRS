@@ -1,25 +1,31 @@
-﻿namespace Framework.Domain
+﻿using System.Collections.Generic;
+using Framework.Domain.Snapshots;
+
+namespace Framework.Domain
 {
-    public abstract class AggregateRoot<T> : Entity<T>, IAggregateRoot
-{
-        private List<DomainEvent> _uncommittedEvents;
+	public abstract class AggregateRoot<T> : Entity<T>, IAggregateRoot
+	{
+		private List<DomainEvent> _uncommittedEvents;
+		protected AggregateRoot()
+		{
+			this._uncommittedEvents = new List<DomainEvent>();
+		}
+		public int Version { get; protected set; }
+		public IReadOnlyList<DomainEvent> GetUncommittedEvents() => _uncommittedEvents.AsReadOnly();
+		public void ClearUncommittedEvents()
+		{
+			this._uncommittedEvents.Clear();
+		}
 
-        protected AggregateRoot() 
-        {
-            _uncommittedEvents = new List<DomainEvent>();
-        }
-        public IReadOnlyList<DomainEvent> GetUncommittedEvents() => _uncommittedEvents.AsReadOnly();
-        public long Version { get; protected set; }
-
-        public void Causes(DomainEvent @event)
-        {
-            _uncommittedEvents.Add(@event);
-            Apply(@event);
-        }
-
-        public virtual void Apply(DomainEvent @event)
-        {
-            Version++;
-        }
-    }
+		public void Causes(DomainEvent @event)
+		{
+			_uncommittedEvents.Add(@event);
+			Apply(@event);
+		}
+		public virtual void Apply(DomainEvent @event)
+		{
+			Version++;
+		}
+		public virtual void Apply(ISnapshot snapshot) { }
+	}
 }

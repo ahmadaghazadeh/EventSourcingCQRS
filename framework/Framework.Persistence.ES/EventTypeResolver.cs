@@ -19,7 +19,7 @@ namespace Framework.Persistence.ES
 
         public Type GetType(string typeName)
         {
-            return types[typeName];
+	        return types.ContainsKey(typeName) ? types[typeName] : null;
         }
     }
 }

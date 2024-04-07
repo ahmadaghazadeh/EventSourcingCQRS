@@ -1,35 +1,30 @@
-﻿
-using EventStore.Client;
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using EventStore.ClientAPI;
 using Framework.Domain;
 using Newtonsoft.Json;
-using System.Text;
 
 namespace Framework.Persistence.ES
 {
-    internal static class EventDataFactory
-    {
-        public static EventData CreateFrom(DomainEvent domainEvent)
-        {
-            EventData eventPayload = GenerateEventData(domainEvent);
-            return eventPayload;
-        }
-        public static IEnumerable<EventData> CreateFrom(IEnumerable<DomainEvent> domainEvents)
-        {
-            var events = domainEvents.Select(GenerateEventData);
-            return events;
-        }
+	internal static class EventDataFactory
+	{
+		public static EventData CreateFromDomainEvent(DomainEvent domainEvent)
+		{
+			var data = JsonConvert.SerializeObject(domainEvent);
+			return new EventData(
+				eventId: domainEvent.EventId,
+				type: domainEvent.GetType().Name,
+				isJson: true,
+				data: Encoding.UTF8.GetBytes(data),
+				metadata: new byte[] { }
+			);
+		}
 
-        private static EventData GenerateEventData(DomainEvent domainEvent)
-        {
-            var json = JsonConvert.SerializeObject(domainEvent);
-            var jsonBytes = Encoding.UTF8.GetBytes(json);
-
-            var eventPayload = new EventData(
-                Uuid.NewUuid(),
-                domainEvent.GetType().Name,
-                jsonBytes);
-
-            return eventPayload;
-        }
-    }
+		public static List<EventData> CreateFromDomainEvents(IEnumerable<DomainEvent> domainEvent)
+		{
+			return domainEvent.Select(CreateFromDomainEvent).ToList();
+		}
+	}
 }
