@@ -9,7 +9,7 @@ namespace LoanApplications.Projections.Sql.Handlers.Model
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
             optionsBuilder.UseSqlServer(
-				"data source=.;User Id=sa;Password=Pass@word;initial catalog=LoanApplicationProjection");
+				"Server=localhost;Database=LoanApplication;User Id=sa;Password=Pass@word;Integrated Security=false;TrustServerCertificate=True;MultipleActiveResultSets=true");
             base.OnConfiguring(optionsBuilder);
         }
     }
